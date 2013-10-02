@@ -17,5 +17,13 @@ cabal-version:       >=1.8
 library
   exposed-modules:     Pipes.PostgreSQL.Simple
   -- other-modules:
-  build-depends:       base >=4.5 && < 5, async >=2.0, mtl >=2.1, bytestring >=0.9, text >=0.11, pipes >=3.3, postgresql-simple >=0.2, postgresql-libpq >=0.8, pipes-concurrency >=1.1, stm >=2.4
+  build-depends:       base              >=4.5 && < 5,
+                       async             >=2.0       ,
+                       mtl               >=2.1       ,
+                       bytestring        >=0.9       ,
+                       text              >=0.11      ,
+                       pipes             >=3.3       ,
+                       postgresql-simple >=0.2       ,
+                       pipes-concurrency >=1.1       ,
+                       stm >=2.4
   hs-source-dirs:      src
