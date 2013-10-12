@@ -13,7 +13,6 @@ module Pipes.PostgreSQL.Simple (
 import Data.String (fromString)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Trans (lift)
 import Data.ByteString (ByteString)
 import Data.Int (Int64)
 
@@ -25,7 +24,15 @@ import qualified Pipes
 import qualified Pipes.Concurrent as Pipes
 
 --------------------------------------------------------------------------------
--- | Convert a query to a 'Producer' of rows
+-- | Convert a query to a 'Producer' of rows.
+--
+-- For example,
+--
+-- > pg <- connectToPostgresql
+-- > query pg "SELECT * FROM widgets WHERE ID = ?" (Only widgetId) >-> print
+--
+-- Will select all widgets for a given @widgetId@, and then print each row to
+-- standard output.
 query
     :: (MonadIO m, Pg.FromRow r, Pg.ToRow params)
     => Pg.Connection -> Pg.Query -> params -> Pipes.Producer r m ()
@@ -47,16 +54,17 @@ showFmt fmt = case fmt of
     CSV    -> "csv"
 
 --------------------------------------------------------------------------------
--- | Convert a table to a byte stream
+-- | Convert a table to a byte stream. This is equivilent to a PostgreSQL
+-- @COPY ... TO@ statement.
 --
--- Returns the number of rows processed
+-- Returns the number of rows processed.
 fromTable
     :: MonadIO m
     => Pg.Connection
-    -> String
     -> Format
+    -> String
     -> Pipes.Producer ByteString m Int64
-fromTable c tblName fmt = do
+fromTable c fmt tblName = do
     liftIO $ Pg.copy_ c $ fromString $ concat
         [ "COPY "
         , tblName
@@ -75,17 +83,18 @@ fromTable c tblName fmt = do
 {-# INLINABLE fromTable #-}
 
 --------------------------------------------------------------------------------
--- | Convert a byte stream to a table
+-- | Convert a byte stream to a table. This is equivilent to a PostgreSQL
+-- @COPY ... FROM@ statement.
 --
 -- Returns the number of rows processed
 toTable
     :: MonadIO m
     => Pg.Connection
-    -> String
     -> Format
+    -> String
     -> Pipes.Producer ByteString m ()
     -> m Int64
-toTable c tblName fmt p0 = do
+toTable c fmt tblName p0 = do
     liftIO $ Pg.copy_ c $ fromString $ concat
         [ "COPY "
         , tblName
