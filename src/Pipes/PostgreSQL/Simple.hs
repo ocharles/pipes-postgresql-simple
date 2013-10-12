@@ -12,6 +12,7 @@ module Pipes.PostgreSQL.Simple (
 
 import Data.String (fromString)
 import Control.Monad (void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans (lift)
 import Data.ByteString (ByteString)
 import Data.Int (Int64)
@@ -26,14 +27,14 @@ import qualified Pipes.Concurrent as Pipes
 --------------------------------------------------------------------------------
 -- | Convert a query to a 'Producer' of rows
 query
-    :: (Pg.FromRow r, Pg.ToRow params)
-    => Pg.Connection -> Pg.Query -> params -> Pipes.Producer r IO ()
+    :: (MonadIO m, Pg.FromRow r, Pg.ToRow params)
+    => Pg.Connection -> Pg.Query -> params -> Pipes.Producer r m ()
 query c q p = do
-    (o, i, seal) <- lift (Pipes.spawn' Pipes.Single)
-    worker <- lift $ Async.async $ do
+    (o, i, seal) <- liftIO (Pipes.spawn' Pipes.Single)
+    worker <- liftIO $ Async.async $ do
         Pg.fold c q p () (const $ void . STM.atomically . Pipes.send o)
         STM.atomically seal
-    lift $ Async.link worker
+    liftIO $ Async.link worker
     Pipes.fromInput i
 
 -- | The PostgreSQL file format, used by the @COPY@ command
@@ -50,12 +51,13 @@ showFmt fmt = case fmt of
 --
 -- Returns the number of rows processed
 fromTable
-    :: Pg.Connection
+    :: MonadIO m
+    => Pg.Connection
     -> String
     -> Format
-    -> Pipes.Producer ByteString IO Int64
+    -> Pipes.Producer ByteString m Int64
 fromTable c tblName fmt = do
-    lift $ Pg.copy_ c $ fromString $ concat
+    liftIO $ Pg.copy_ c $ fromString $ concat
         [ "COPY "
         , tblName
         , " TO STDOUT WITH (FORMAT \""
@@ -63,7 +65,7 @@ fromTable c tblName fmt = do
         , "\")"
         ]
     let go = do
-            r <- lift (Pg.getCopyData c)
+            r <- liftIO (Pg.getCopyData c)
             case r of
                 Pg.CopyOutRow bs -> do
                     Pipes.yield bs
@@ -77,13 +79,14 @@ fromTable c tblName fmt = do
 --
 -- Returns the number of rows processed
 toTable
-    :: Pg.Connection
+    :: MonadIO m
+    => Pg.Connection
     -> String
     -> Format
-    -> Pipes.Producer ByteString IO ()
-    -> IO Int64
+    -> Pipes.Producer ByteString m ()
+    -> m Int64
 toTable c tblName fmt p0 = do
-    Pg.copy_ c $ fromString $ concat
+    liftIO $ Pg.copy_ c $ fromString $ concat
         [ "COPY "
         , tblName
         , " FROM STDIN WITH (FORMAT \""
@@ -93,7 +96,7 @@ toTable c tblName fmt p0 = do
     let go p = do
             x <- Pipes.next p
             case x of
-                Left   ()      -> Pg.putCopyEnd  c
-                Right (bs, p') -> Pg.putCopyData c bs       >> go p'
+                Left   ()      -> liftIO (Pg.putCopyEnd c)
+                Right (bs, p') -> liftIO (Pg.putCopyData c bs) >> go p'
     go p0
 {-# INLINABLE toTable #-}

@@ -25,5 +25,6 @@ library
                        pipes             >=3.3       ,
                        postgresql-simple >=0.3.4     ,
                        pipes-concurrency >=1.1       ,
+                       transformers      >=0.3       ,
                        stm >=2.4
   hs-source-dirs:      src
