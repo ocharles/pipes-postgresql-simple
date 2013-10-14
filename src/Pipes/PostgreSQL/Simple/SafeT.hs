@@ -35,7 +35,7 @@ toTable c fmt tblName = do
     , " FROM STDIN WITH (FORMAT " , show fmt, ")"
     ]
 
-  (Pipes.for Pipes.cat (liftIO . Pg.putCopyData c))
+  Pipes.for Pipes.cat (liftIO . Pg.putCopyData c)
     `onException` (\e -> do Pipes.release putCopyEnd
                             Pipes.liftBase $ Pg.putCopyError c $
                               Text.encodeUtf8 . Text.pack $ show e)
