@@ -10,11 +10,13 @@ module Pipes.PostgreSQL.Simple (
     toTable
     ) where
 
-import Data.String (fromString)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.Int (Int64)
+import Data.String (fromString)
+
+import Pipes.PostgreSQL.Simple.SafeT (Format(..))
 
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
@@ -44,15 +46,6 @@ query c q p = do
     liftIO $ Async.link worker
     Pipes.fromInput i
 
--- | The PostgreSQL file format, used by the @COPY@ command
-data Format = Text | Binary | CSV
-
-showFmt :: Format -> String
-showFmt fmt = case fmt of
-    Text   -> "text"
-    Binary -> "binary"
-    CSV    -> "csv"
-
 --------------------------------------------------------------------------------
 -- | Convert a table to a byte stream. This is equivilent to a PostgreSQL
 -- @COPY ... TO@ statement.
@@ -66,11 +59,8 @@ fromTable
     -> Pipes.Producer ByteString m Int64
 fromTable c fmt tblName = do
     liftIO $ Pg.copy_ c $ fromString $ concat
-        [ "COPY "
-        , tblName
-        , " TO STDOUT WITH (FORMAT \""
-        , showFmt fmt
-        , "\")"
+        [ "COPY ", tblName
+        , " TO STDOUT WITH (FORMAT ", show fmt , ")"
         ]
     let go = do
             r <- liftIO (Pg.getCopyData c)
@@ -96,11 +86,8 @@ toTable
     -> m Int64
 toTable c fmt tblName p0 = do
     liftIO $ Pg.copy_ c $ fromString $ concat
-        [ "COPY "
-        , tblName
-        , " FROM STDIN WITH (FORMAT \""
-        , showFmt fmt
-        , "\")"
+        [ "COPY " , tblName
+        , " FROM STDIN WITH (FORMAT " , show fmt, "\")"
         ]
     let go p = do
             x <- Pipes.next p
