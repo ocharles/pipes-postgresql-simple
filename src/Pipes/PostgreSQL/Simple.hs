@@ -11,6 +11,7 @@ module Pipes.PostgreSQL.Simple (
     ) where
 
 import Control.Monad (void)
+import Control.Monad.Catch (MonadCatch, catchAll, throwM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.Int (Int64)
@@ -20,6 +21,8 @@ import Pipes.PostgreSQL.Simple.SafeT (Format(..))
 
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
+import qualified Data.Text as Text
+import qualified Data.Text.Encoding as Text
 import qualified Database.PostgreSQL.Simple as Pg
 import qualified Database.PostgreSQL.Simple.Copy as Pg
 import qualified Pipes
@@ -78,7 +81,7 @@ fromTable c fmt tblName = do
 --
 -- Returns the number of rows processed
 toTable
-    :: MonadIO m
+    :: (MonadCatch m, MonadIO m)
     => Pg.Connection
     -> Format
     -> String
@@ -90,9 +93,17 @@ toTable c fmt tblName p0 = do
         , " FROM STDIN WITH (FORMAT " , show fmt, "\")"
         ]
     let go p = do
-            x <- Pipes.next p
+            x <- Pipes.next p `onException`
+                   (liftIO . Pg.putCopyError c .
+                      Text.encodeUtf8 . Text.pack . show)
             case x of
                 Left   ()      -> liftIO (Pg.putCopyEnd c)
                 Right (bs, p') -> liftIO (Pg.putCopyData c bs) >> go p'
     go p0
+
+ where
+
+  action `onException` handler =
+
+    action `catchAll` \e -> handler e >> throwM e
 {-# INLINABLE toTable #-}
