@@ -17,6 +17,10 @@ category: Database, Pipes
 build-type: Simple
 cabal-version: >=1.8
 
+Source-Repository head
+    Type: git
+    Location: https://github.com/ocharles/pipes-postgresql-simple
+
 library
   exposed-modules:     Pipes.PostgreSQL.Simple
                        Pipes.PostgreSQL.Simple.SafeT
