@@ -3,6 +3,7 @@
 module Pipes.PostgreSQL.Simple (
     -- * Querying
     query,
+    query_,
 
     -- * Serialization and Deserialization
     Format(..),
@@ -45,6 +46,18 @@ query c q p = do
     (o, i, seal) <- liftIO (Pipes.spawn' Pipes.Single)
     worker <- liftIO $ Async.async $ do
         Pg.fold c q p () (const $ void . STM.atomically . Pipes.send o)
+        STM.atomically seal
+    liftIO $ Async.link worker
+    Pipes.fromInput i
+
+-- | Like 'query', but it doesn't perform any query parameter substitution.
+query_
+    :: (MonadIO m, Pg.FromRow r)
+    => Pg.Connection -> Pg.Query -> Pipes.Producer r m ()
+query_ c q = do
+    (o, i, seal) <- liftIO (Pipes.spawn' Pipes.Single)
+    worker <- liftIO $ Async.async $ do
+        Pg.fold_ c q () (const $ void . STM.atomically . Pipes.send o)
         STM.atomically seal
     liftIO $ Async.link worker
     Pipes.fromInput i
