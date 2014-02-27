@@ -1,4 +1,4 @@
-# HEAD
+# 0.1.2.0
 
 * Add `Pipes.PostgreSQL.Simple.query_`.
 

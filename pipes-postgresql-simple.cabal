@@ -1,5 +1,5 @@
 name: pipes-postgresql-simple
-version: 0.1.1.2
+version: 0.1.2.0
 synopsis: Convert various postgresql-simple calls to work with pipes
 description: This library provides a few Producers and Consumers that allow
   @postgresql-simple@ calls to be made within the @pipes@ framework. Currently,
