@@ -3,6 +3,7 @@
 module Pipes.PostgreSQL.Simple (
     -- * Querying
     query,
+    query_,
 
     -- * Serialization and Deserialization
     Format(..),
@@ -41,13 +42,13 @@ import qualified Pipes.Concurrent as Pipes
 query
     :: (MonadIO m, Pg.FromRow r, Pg.ToRow params)
     => Pg.Connection -> Pg.Query -> params -> Pipes.Producer r m ()
-query c q p = do
-    (o, i, seal) <- liftIO (Pipes.spawn' Pipes.Single)
-    worker <- liftIO $ Async.async $ do
-        Pg.fold c q p () (const $ void . STM.atomically . Pipes.send o)
-        STM.atomically seal
-    liftIO $ Async.link worker
-    Pipes.fromInput i
+query c q p = produceIO $ Pg.fold c q p () . const
+
+-- | Like 'query', but it doesn't perform any query parameter substitution.
+query_
+    :: (MonadIO m, Pg.FromRow r)
+    => Pg.Connection -> Pg.Query -> Pipes.Producer r m ()
+query_ c q = produceIO $ Pg.fold_ c q () . const
 
 --------------------------------------------------------------------------------
 -- | Convert a table to a byte stream. This is equivilent to a PostgreSQL
@@ -107,3 +108,22 @@ toTable c fmt tblName p0 = do
 
     action `catchAll` \e -> handler e >> throwM e
 {-# INLINABLE toTable #-}
+
+--------------------------------------------------------------------------------
+-- Internal tools
+
+-- | Build a 'Producer' from an 'IO' action by allowing said 'IO' action to
+-- “yield” values in a streaming fashion.
+produceIO
+  :: MonadIO m
+  => ((a -> IO ()) -> IO ()) -- ^ This action will be called once. It takes
+                             -- a function that “yields” an @a@ when called.
+  -> Pipes.Producer a m ()
+produceIO f = do
+    (o, i, seal) <- liftIO $ Pipes.spawn' Pipes.Single
+    worker <- liftIO $ Async.async $ do
+        f $ \a -> void $ STM.atomically $ Pipes.send o a
+        STM.atomically seal
+    liftIO $ Async.link worker
+    Pipes.fromInput i
+

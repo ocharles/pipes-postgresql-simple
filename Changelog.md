@@ -1,3 +1,7 @@
+# HEAD
+
+* Add `Pipes.PostgreSQL.Simple.query_`.
+
 # 0.1.1.2
 
 * Increased lower bound of `pipes` to 4.0. Thanks to Gabriel for fixing this and
