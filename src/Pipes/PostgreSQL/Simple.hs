@@ -122,7 +122,7 @@ produceIO
 produceIO f = do
     (o, i, seal) <- liftIO $ Pipes.spawn' Pipes.Single
     worker <- liftIO $ Async.async $ do
-        f $ \a -> void $ STM.atomically $ Pipes.send o $! a
+        f $ \a -> void $ STM.atomically $ Pipes.send o a
         STM.atomically seal
     liftIO $ Async.link worker
     Pipes.fromInput i
