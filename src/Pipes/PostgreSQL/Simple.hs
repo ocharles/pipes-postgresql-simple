@@ -91,7 +91,7 @@ toTable
 toTable c fmt tblName p0 = do
     liftIO $ Pg.copy_ c $ fromString $ concat
         [ "COPY " , tblName
-        , " FROM STDIN WITH (FORMAT " , show fmt, "\")"
+        , " FROM STDIN WITH (FORMAT " , show fmt, ")"
         ]
     let go p = do
             x <- Pipes.next p `onException`
